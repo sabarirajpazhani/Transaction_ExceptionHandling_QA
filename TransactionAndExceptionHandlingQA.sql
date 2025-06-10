@@ -1,6 +1,6 @@
 create database TransactionExceptionQA;
 use TransactionExceptionQA;
-/*Banking System:
+/*1. Banking System:
 Implement a stored procedure to transfer money between two accounts. Ensure that:
 The amount is deducted from one account.
 The same amount is credited to another account.
@@ -68,7 +68,7 @@ drop procedure TransferMoney;
 select * from Accounts;
 select * from ErrorLog;
 
-/*Inventory Management:
+/*2. Inventory Management:
 Create a procedure to process an order:
 Reduce stock from the inventory table.
 Insert a record into the order table.
@@ -132,7 +132,7 @@ exec ProcessOrder 1, 8;
 select * from Inventory;
 Select * from Orders;
 
-/*Employee Payroll:
+/*3. Employee Payroll:
 Write a procedure to update employee salaries:
 Apply a percentage increment to a department.
 Log changes into a salary history table.
@@ -202,3 +202,69 @@ select * from Employees;
 select * from SalaryHistory;
 
 
+/*4. Flight Booking System:
+Handle seat reservation:
+Check seat availability.
+Insert into booking table.
+If the seat is already booked or any issue occurs, rollback and raise an error.*/
+CREATE TABLE Flights (
+    FlightID INT PRIMARY KEY,
+    FlightName VARCHAR(100),
+    TotalSeats INT
+);
+CREATE TABLE Bookings (
+    BookingID INT IDENTITY(1,1) PRIMARY KEY,
+    FlightID INT,
+    SeatNumber INT,
+    PassengerName VARCHAR(100),
+    BookingDate DATETIME,
+    CONSTRAINT UQ_FlightSeat UNIQUE (FlightID, SeatNumber)  -- prevents duplicate bookings
+);
+INSERT INTO Flights (FlightID, FlightName, TotalSeats) VALUES
+(1, 'Indigo 6E-204', 100),
+(2, 'Air India AI-101', 150),
+(3, 'SpiceJet SG-456', 120);
+
+select * from Flights;
+select * from Bookings;
+
+create procedure BookFlight
+	@FlightID int,
+	@SeatNumber int,
+	@PassengerName varchar(80)
+as
+begin
+	begin try
+		begin transaction
+			declare @AvailableSeats int
+			select @AvailableSeats = TotalSeats from Flights where FlightID = @FlightID
+			if exists (select 1 from Bookings where FlightID = @FlightID and SeatNumber = @SeatNumber)
+			begin
+				print 'Seat Already Booked'
+				rollback transaction
+				return
+			end
+
+			if(@AvailableSeats < @SeatNumber)
+			begin
+				print 'Invalid Seat Number' 
+				rollback transaction
+				return
+			end
+
+			insert into Bookings values
+			(@FlightID,@SeatNumber,@PassengerName,GETDATE())
+
+		commit transaction
+	end try
+	begin catch
+		rollback transaction
+		print 'Error Message - ' + error_message()
+	end catch
+end
+			
+exec BookFlight 1, 10, Arun;
+
+
+select * from Flights;
+select * from Bookings;
