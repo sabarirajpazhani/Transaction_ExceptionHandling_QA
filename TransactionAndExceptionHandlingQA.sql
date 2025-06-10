@@ -131,3 +131,74 @@ end
 exec ProcessOrder 1, 8;
 select * from Inventory;
 Select * from Orders;
+
+/*Employee Payroll:
+Write a procedure to update employee salaries:
+Apply a percentage increment to a department.
+Log changes into a salary history table.
+If any update fails, revert all salary updates and log the error.*/
+CREATE TABLE Employees (
+    EmpID INT PRIMARY KEY,
+    EmpName VARCHAR(100),
+    Department VARCHAR(50),
+    Salary DECIMAL(10,2)
+);
+CREATE TABLE SalaryHistory (
+    HistoryID INT IDENTITY(1,1) PRIMARY KEY,
+    EmpID INT,
+    OldSalary DECIMAL(10,2),
+    NewSalary DECIMAL(10,2),
+    UpdatedDate DATETIME
+);
+INSERT INTO Employees (EmpID, EmpName, Department, Salary) VALUES
+(1, 'Ravi Kumar', 'IT', 50000),
+(2, 'Priya Sharma', 'HR', 45000),
+(3, 'Amit Verma', 'IT', 55000),
+(4, 'Neha Reddy', 'Finance', 60000),
+(5, 'Vijay Patel', 'HR', 47000);
+
+select * from Employees;
+select * from SalaryHistory;
+
+create procedure EmployeeSalary
+	@EmpID int,
+	@SalaryPercent decimal(5,2)
+as
+begin	
+	begin try
+		begin transaction
+			declare @OldSalary decimal(10,2), @NewSalary decimal(10,2)
+			select @OldSalary = Salary from Employees where EmpID = @EmpID
+
+			if @@rowcount = 0
+			begin
+				print 'Employee ID not Found'
+				rollback transaction
+				return
+			end
+
+			set @NewSalary = @OldSalary + (@OldSalary * @SalaryPercent /100)
+
+			update Employees
+			set Salary = @NewSalary
+			where EmpID = @EmpID
+
+			insert into SalaryHistory values
+			(@EmpID, @OldSalary, @NewSalary, GETDATE())
+
+		commit transaction
+	end try
+	begin catch
+		rollback transaction
+		print 'Error Message - ' + error_message()
+	end catch
+end
+
+exec EmployeeSalary 10, 10;
+
+drop procedure EmployeeSalary;
+
+select * from Employees;
+select * from SalaryHistory;
+
+
