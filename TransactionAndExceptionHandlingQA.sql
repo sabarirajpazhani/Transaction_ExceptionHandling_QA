@@ -351,3 +351,103 @@ select * from Products;
 select * from Cart;
 select * from Orders;
 select * from OrderDetails;
+
+/*6. Student Enrollment System:
+Enroll a student into a course:
+Check if seats are available.
+Insert into enrollment table.
+If already enrolled or course is full, abort the transaction.*/
+
+CREATE TABLE Students (
+    StudentID INT PRIMARY KEY,
+    StudentName VARCHAR(100)
+);
+
+-- Sample data
+INSERT INTO Students VALUES (1, 'Anjali');
+INSERT INTO Students VALUES (2, 'Rahul');
+INSERT INTO Students VALUES (3, 'Meena');
+
+CREATE TABLE Courses (
+    CourseID INT PRIMARY KEY,
+    CourseName VARCHAR(100),
+    TotalSeats INT,
+    SeatsAvailable INT
+);
+
+-- Sample data
+INSERT INTO Courses VALUES (101, 'Java Programming', 30, 2);
+INSERT INTO Courses VALUES (102, 'Python Basics', 25, 0);  -- full course
+
+CREATE TABLE Enrollments (
+    EnrollmentID INT IDENTITY(1,1) PRIMARY KEY,
+    StudentID INT,
+    CourseID INT,
+    EnrollDate DATETIME
+);
+
+-- Optional sample enrollments
+INSERT INTO Enrollments (StudentID, CourseID, EnrollDate)
+VALUES (1, 101, GETDATE());  -- Anjali already enrolled in Java
+
+
+
+create procedure EnrollCourse
+	@StudentID int, 
+	@CourseID int
+as
+begin
+	begin try
+		begin transaction
+			if @StudentID not in (Select StudentID from Students)
+			begin
+				raiserror('Student ID not Found',16,1)
+				rollback transaction
+			    return
+			end
+		    
+			if @CourseID  not in (Select CourseID from Courses)
+			begin
+				raiserror ('Course ID not found', 16,1)
+				rollback transaction
+				return 
+			end
+
+			declare @AvailableSeat int ;
+			select  @AvailableSeat = SeatsAvailable from Courses where CourseID = @CourseID
+
+			if(@AvailableSeat = 0)
+			begin
+				raiserror('Course is Full',16,1)
+				rollback transaction
+				return
+			end
+
+			if @StudentID in (select StudentID from Enrollments where CourseID = @CourseID)
+			begin
+				raiserror('Already Enrolled',16,1)
+				rollback transaction
+				return
+			end
+
+			insert into  Enrollments
+			values (@StudentID,@CourseID,GETDATE())
+
+			update Courses 
+			set SeatsAvailable = SeatsAvailable -1
+			where CourseID =@CourseID
+
+		commit transaction
+	end try
+	begin catch
+		rollback transaction
+		print 'Error Message - ' + error_message()
+	end catch
+end
+
+exec EnrollCourse 2, 101;
+
+select * from Students;
+select * from Courses;
+select * from Enrollments;
+
