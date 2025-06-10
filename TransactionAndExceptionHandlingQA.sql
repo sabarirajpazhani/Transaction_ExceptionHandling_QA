@@ -268,3 +268,86 @@ exec BookFlight 1, 10, Arun;
 
 select * from Flights;
 select * from Bookings;
+
+
+/*5. Online Shopping Cart:
+When checking out:
+Create an order.
+Deduct stock.
+Remove items from the cart.
+If any part fails (e.g., stock out), cancel the order and rollback changes.*/
+CREATE TABLE Products (
+    ProductID INT PRIMARY KEY,
+    ProductName VARCHAR(100),
+    Stock INT
+);
+CREATE TABLE Cart (
+    CartID INT IDENTITY(1,1) PRIMARY KEY,
+    UserID INT,
+    ProductID INT,
+    Quantity INT
+);
+CREATE TABLE Orders (
+    OrderID INT IDENTITY(1,1) PRIMARY KEY,
+    UserID INT,
+    OrderDate DATETIME
+);
+CREATE TABLE OrderDetails (
+    OrderDetailID INT IDENTITY(1,1) PRIMARY KEY,
+    OrderID INT,
+    ProductID INT,
+    Quantity INT
+);
+-- Products
+INSERT INTO Products (ProductID, ProductName, Stock) VALUES
+(1, 'T-shirt', 20),
+(2, 'Shoes', 15),
+(3, 'Cap', 10);
+
+-- Cart (User 101)
+INSERT INTO Cart (UserID, ProductID, Quantity) VALUES
+(101, 1, 2),  -- 2 T-shirts
+(101, 2, 1);  -- 1 pair of Shoes
+
+
+
+create procedure OrderProduct
+	@UserID int
+as
+begin
+	begin try
+		begin transaction
+			if Not Exists(Select 1 from Cart where UserID = @UserID)
+			begin 
+				raiserror ('User not found', 16,1)
+				rollback transaction
+				return
+			end
+			insert into Orders values
+			(@UserID, getdate())
+
+			declare @OrderID int= SCOPE_IDENTITY()
+
+			declare @ProductID int, @Quantity int
+			select @ProductID = ProductID , @Quantity = Quantity from Cart where UserID = @UserID
+
+			insert into OrderDetails (OrderID, ProductID, Quantity)
+			select @OrderID,ProductID, Quantity from Cart
+			where UserID = @UserID;
+
+			delete from Cart where UserID = @UserID;
+		commit transaction
+	end try
+	begin catch
+		rollback transaction
+		print 'Error Message - ' + error_message()
+	end catch
+end
+
+
+exec OrderProduct 101;
+
+select * from Products;
+select * from Cart;
+select * from Orders;
+select * from OrderDetails;
