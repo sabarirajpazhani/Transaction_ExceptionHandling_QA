@@ -1,3 +1,5 @@
+create database TransactionExceptionQA;
+use TransactionExceptionQA;
 /*Banking System:
 Implement a stored procedure to transfer money between two accounts. Ensure that:
 The amount is deducted from one account.
@@ -65,3 +67,67 @@ exec TransferMoney 101, 106, 1000;
 drop procedure TransferMoney;
 select * from Accounts;
 select * from ErrorLog;
+
+/*Inventory Management:
+Create a procedure to process an order:
+Reduce stock from the inventory table.
+Insert a record into the order table.
+If stock is insufficient or any error occurs, rollback and return an error message.*/
+CREATE TABLE Inventory (
+    ProductID INT PRIMARY KEY,
+    ProductName VARCHAR(100),
+    QuantityAvailable INT
+);
+
+CREATE TABLE Orders (
+    OrderID INT IDENTITY(1,1) PRIMARY KEY,
+    ProductID INT,
+    QuantityOrdered INT,
+    OrderDate DATETIME
+);
+
+INSERT INTO Inventory (ProductID, ProductName, QuantityAvailable) VALUES
+(1, 'Laptop', 10),
+(2, 'Mouse', 25),
+(3, 'Keyboard', 15),
+(4, 'Monitor', 8);
+
+select * from Inventory;
+
+create procedure ProcessOrder
+	@ProductID int,
+	@Quantity int
+as
+begin
+	begin try
+		begin transaction
+		declare @AvailableQuantity int
+		select @AvailableQuantity = QuantityAvailable from Inventory
+		where ProductID = @ProductID
+
+		if(@AvailableQuantity < @Quantity)
+		begin
+			raiserror('Insuffient Stock', 16,1)
+			rollback transaction
+			return
+		end
+
+		update Inventory
+		set QuantityAvailable = QuantityAvailable - @Quantity
+		where ProductID = @ProductID
+
+		insert into Orders values
+		(@ProductID, @Quantity, GETDATE())
+
+		commit transaction
+	end try
+	begin catch
+		rollback transaction
+		
+		print 'Error Message - '+error_message()
+	end catch
+end
+
+exec ProcessOrder 1, 8;
+select * from Inventory;
+Select * from Orders;
